@@ -30,11 +30,13 @@ import xiangshan.backend.datapath.WbConfig.{PregWB, _}
 import xiangshan.backend.fu.FuType
 import xiangshan.backend.fu.vector.Bundles.{VType, Vxrm}
 import xiangshan.backend.fu.fpu.Bundles.Frm
+import xiangshan.backend.fu.wrapper.CSRInput
 
 class ExeUnitIO(params: ExeUnitParams)(implicit p: Parameters) extends XSBundle {
   val flush = Flipped(ValidIO(new Redirect()))
   val in = Flipped(DecoupledIO(new ExuInput(params)))
   val out = DecoupledIO(new ExuOutput(params))
+  val csrin = OptionWrapper(params.hasCSR, new CSRInput)
   val csrio = OptionWrapper(params.hasCSR, new CSRFileIO)
   val fenceio = OptionWrapper(params.hasFence, new FenceIO)
   val frm = OptionWrapper(params.needSrcFrm, Input(Frm()))
@@ -328,6 +330,7 @@ class ExeUnitImp(
       exuio <> fuio
       fuio.exception := DelayN(exuio.exception, 2)
   }))
+  io.csrin.foreach(exuio => funcUnits.foreach(fu => fu.io.csrin.foreach{fuio => fuio := exuio}))
 
   io.vtype.foreach(exuio => funcUnits.foreach(fu => fu.io.vtype.foreach(fuio => exuio := fuio)))
   io.fenceio.foreach(exuio => funcUnits.foreach(fu => fu.io.fenceio.foreach(fuio => fuio <> exuio)))
