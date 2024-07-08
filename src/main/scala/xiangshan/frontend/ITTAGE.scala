@@ -22,6 +22,7 @@ import chisel3.util._
 import xiangshan._
 import utils._
 import utility._
+import utility.mbist.MbistPipeline
 
 import scala.math.min
 import scala.util.matching.Regex
@@ -216,7 +217,8 @@ class ITTageTable
   val us = Module(new Folded1WDataModuleTemplate(
     Bool(), nRows, 1, isSync=true, width=uFoldedWidth, hasRen=true))
   val table_banks = Seq.fill(nBanks)(Module(new FoldedSRAMTemplate(
-    new ITTageEntry, set=nRows/nBanks, width=bankFoldWidth, shouldReset=true, holdRead=true, singlePort=true)))
+    new ITTageEntry, set=nRows/nBanks, width=bankFoldWidth, shouldReset=true, holdRead=true, singlePort=true, hasMbist = hasMbist)))
+  private val mbistPl = MbistPipeline.PlaceMbistPipeline(1, "MbistPipeIttage", hasMbist)
 
   for (b <- 0 until nBanks) {
     table_banks(b).io.r.req.valid := io.req.fire && s0_bank_req_1h(b)

@@ -25,10 +25,13 @@ import freechips.rocketchip.tile.HasFPUParameters
 import system.HasSoCParameter
 import utils._
 import utility._
+import utility.mbist.{MbistInterface, MbistPipeline}
+import utility.sram.SramHelper
 import xiangshan.backend._
 import xiangshan.cache.mmu._
 import xiangshan.frontend._
 import xiangshan.mem.L1PrefetchFuzzer
+
 import scala.collection.mutable.ListBuffer
 import xiangshan.cache.mmu.TlbRequestIO
 
@@ -91,6 +94,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
       val l3MissMatch = Input(Bool())
     }
   })
+  val dft_reset = IO(Input(new DFTResetSignals()))
 
   println(s"FPGAPlatform:${env.FPGAPlatform} EnableDebug:${env.EnableDebug}")
 
@@ -218,6 +222,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   memBlock.io.l2_tlb_req <> io.l2_tlb_req
   memBlock.io.l2_hint.bits.isKeyword := io.l2_hint.bits.isKeyword
   memBlock.io.l2PfqBusy := io.l2PfqBusy
+  memBlock.io.dft_reset := dft_reset
 
   // if l2 prefetcher use stream prefetch, it should be placed in XSCore
 
@@ -236,6 +241,30 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   io.beu_errors.dcache <> memBlock.io.error.bits.toL1BusErrorUnitInfo(memBlock.io.error.valid)
   io.beu_errors.l2 <> DontCare
   io.l2_pf_enable := memBlock.io.outer_l2_pf_enable
+  private val mbistPl = MbistPipeline.PlaceMbistPipeline(Int.MaxValue, "MbistPipeCore", hasMbist)
+  private val mbistIntf = if(hasMbist) {
+    val params = mbistPl.get.nodeParams
+    val intf = Some(Module(new MbistInterface(
+      params = Seq(params),
+      ids = Seq(mbistPl.get.childrenIds),
+      name = s"MBIST_intf_core",
+      pipelineNum = 1
+    )))
+    intf.get.toPipeline.head <> mbistPl.get.mbist
+    mbistPl.get.registerCSV(intf.get.info, "MBIST_Core")
+    intf.get.mbist := DontCare
+    dontTouch(intf.get.mbist)
+    //TODO: add mbist controller connections here
+    intf
+  } else {
+    None
+  }
+  private val sigFromSrams = if (hasMbist) Some(SramHelper.genBroadCastBundleTop()) else None
+  val dft = if (hasMbist) Some(IO(sigFromSrams.get.cloneType)) else None
+  if (hasMbist) {
+    sigFromSrams.get := dft.get
+  }
+
   // Modules are reset one by one
   val resetTree = ResetGenNode(
     Seq(
@@ -251,7 +280,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
     )
   )
 
-  // ResetGen(resetTree, reset, !debugOpts.FPGAPlatform)
+  ResetGen(resetTree, reset, Some(dft_reset), !debugOpts.ResetGen)
   if (debugOpts.ResetGen) {
     frontend.reset := memBlock.reset_io_frontend
     backend.reset := memBlock.reset_io_backend

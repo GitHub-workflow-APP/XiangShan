@@ -22,6 +22,7 @@ import chisel3.util._
 import xiangshan._
 import utils._
 import utility._
+import utility.mbist.MbistPipeline
 
 import scala.math.min
 import xiangshan.backend.decode.ImmUnion
@@ -234,6 +235,7 @@ class Predictor(implicit p: Parameters) extends XSModule with HasBPUConst with H
 
   val ctrl = DelayN(io.ctrl, 1)
   val predictors = Module(if (useBPD) new Composer else new FakePredictor)
+  private val mbistPl = MbistPipeline.PlaceMbistPipeline(2, "MbistPipeBpu", hasMbist)
 
   def numOfStage = 3
   require(numOfStage > 1, "BPU numOfStage must be greater than 1")

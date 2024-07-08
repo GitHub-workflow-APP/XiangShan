@@ -171,11 +171,6 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
       })
     }
 
-    FileRegisters.add("dts", dts)
-    FileRegisters.add("graphml", graphML)
-    FileRegisters.add("json", json)
-    FileRegisters.add("plusArgs", freechips.rocketchip.util.PlusArgArtefacts.serialize_cHeader())
-
     val dma = socMisc.map(m => IO(Flipped(new VerilogAXI4Record(m.dma.elts.head.params))))
     val peripheral = IO(new VerilogAXI4Record(misc.peripheral.elts.head.params))
     val memory = IO(new VerilogAXI4Record(misc.memory.elts.head.params))
@@ -235,6 +230,8 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
       core.module.io.hartId := i.U
       io.riscv_halt(i) := core.module.io.cpu_halt
       core.module.io.reset_vector := io.riscv_rst_vec(i)
+      core.module.dft_reset := 0.U.asTypeOf(core.module.dft_reset)
+      core.module.dft.foreach(d => d := 0.U.asTypeOf(d))
       chi_dummyllc_opt.foreach { case llc =>
         llc.module.io.rn(i) <> core.module.io.chi.get
         core.module.io.nodeID.get := i.U // TODO
@@ -294,7 +291,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
       // Modules are reset one by one
       // reset ----> SYNC --> {SoCMisc, L3 Cache, Cores}
       val resetChain = Seq(Seq(misc.module) ++ l3cacheOpt.map(_.module) ++ core_with_l2.map(_.module))
-      ResetGen(resetChain, reset_sync, !debugOpts.ResetGen)
+      ResetGen(resetChain, reset_sync, None, !debugOpts.ResetGen)
     }
 
   }
@@ -325,5 +322,9 @@ object TopMain extends App {
     DifftestModule.finish("XiangShan", false)
   }
 
+  FileRegisters.add("dts", soc.dts)
+  FileRegisters.add("graphml", soc.graphML)
+  FileRegisters.add("json", soc.json)
+  FileRegisters.add("plusArgs", freechips.rocketchip.util.PlusArgArtefacts.serialize_cHeader())
   FileRegisters.write(fileDir = "./build", filePrefix = "XSTop.")
 }

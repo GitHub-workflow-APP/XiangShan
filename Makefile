@@ -53,8 +53,8 @@ ifeq ($(MFC),1)
 CHISEL_VERSION = chisel
 FPGA_MEM_ARGS = --firtool-opt "--repl-seq-mem --repl-seq-mem-file=$(TOP).$(RTL_SUFFIX).conf"
 SIM_MEM_ARGS = --firtool-opt "--repl-seq-mem --repl-seq-mem-file=$(SIM_TOP).$(RTL_SUFFIX).conf"
-MFC_ARGS = --dump-fir --target systemverilog --split-verilog \
-           --firtool-opt "-O=release --disable-annotation-unknown --lowering-options=explicitBitcast,disallowLocalVariables,disallowPortDeclSharing,locationInfoStyle=none"
+MFC_ARGS = --dump-fir --target systemverilog --split-verilog
+MFC_ARGS += --firtool-opt "-O=release --disable-annotation-unknown --lowering-options=explicitBitcast,disallowLocalVariables,disallowPortDeclSharing,locationInfoStyle=none"
 RELEASE_ARGS += $(MFC_ARGS)
 DEBUG_ARGS += $(MFC_ARGS)
 PLDM_ARGS += $(MFC_ARGS)
@@ -146,7 +146,7 @@ $(TOP_V): $(SCALA_FILE)
 	mkdir -p $(@D)
 	$(TIME_CMD) mill -i xiangshan[$(CHISEL_VERSION)].runMain $(FPGATOP)   \
 		--target-dir $(@D) --config $(CONFIG) $(FPGA_MEM_ARGS)        \
-		--num-cores $(NUM_CORES) $(RELEASE_ARGS)
+		--num-cores $(NUM_CORES) $(RELEASE_ARGS) --full-stacktrace
 ifeq ($(MFC),1)
 	$(MEM_GEN_SEP) "$(MEM_GEN)" "$@.conf" "$(@D)"
 endif

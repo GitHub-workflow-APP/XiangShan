@@ -29,6 +29,7 @@ import freechips.rocketchip.tilelink._
 import xiangshan.backend.fu.{PMP, PMPChecker, PMPReqBundle, PMPRespBundle}
 import xiangshan.backend.fu.util.HasCSRConst
 import difftest._
+import utility.mbist.MbistPipeline
 
 class L2TLB()(implicit p: Parameters) extends LazyModule with HasPtwConst {
   override def shouldBeInlined: Boolean = false
@@ -121,6 +122,7 @@ class L2TLBImp(outer: L2TLB)(implicit p: Parameters) extends PtwModule(outer) wi
   val outArbCachePort = 0
   val outArbFsmPort = 1
   val outArbMqPort = 2
+  val mbistPl = MbistPipeline.PlaceMbistPipeline(2, s"MbistPipePtw", hasMbist)
 
   // hptw arb input port
   val InHptwArbPTWPort = 0

@@ -21,6 +21,7 @@ import chisel3.util._
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import utils._
 import utility._
+import utility.mbist.MbistPipeline
 import xiangshan._
 import xiangshan.backend.fu.{PFEvent, PMP, PMPChecker, PMPReqBundle}
 import xiangshan.cache.mmu._
@@ -71,6 +72,7 @@ class FrontendImp (outer: Frontend) extends LazyModuleImp(outer)
   val ifu     = Module(new NewIFU)
   val ibuffer =  Module(new IBuffer)
   val ftq = Module(new Ftq)
+  private val mbistPl = MbistPipeline.PlaceMbistPipeline(3, "MbistPipeFrontend", hasMbist)
 
   val needFlush = RegNext(io.backend.toFtq.redirect.valid)
   val FlushControlRedirect = RegNext(io.backend.toFtq.redirect.bits.debugIsCtrl)

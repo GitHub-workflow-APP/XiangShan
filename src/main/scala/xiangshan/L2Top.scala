@@ -24,13 +24,13 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.interrupts._
 import freechips.rocketchip.tile.{BusErrorUnit, BusErrorUnitParams, BusErrors, MaxHartIdBits}
 import freechips.rocketchip.tilelink._
-import coupledL2.{L2ParamKey, EnableCHI}
+import coupledL2.{EnableCHI, L2ParamKey}
 import coupledL2.tl2tl.TL2TLCoupledL2
-import coupledL2.tl2chi.{TL2CHICoupledL2, PortIO}
+import coupledL2.tl2chi.{PortIO, TL2CHICoupledL2}
 import huancun.BankBitsKey
 import system.HasSoCParameter
 import top.BusPerfMonitor
-import utility.{DelayN, ResetGen, TLClientsMerger, TLEdgeBuffer, TLLogger}
+import utility.{DFTResetSignals, DelayN, ResetGen, TLClientsMerger, TLEdgeBuffer, TLLogger}
 import xiangshan.cache.mmu.TlbRequestIO
 
 class L1BusErrorUnitInfo(implicit val p: Parameters) extends Bundle with HasSoCParameter {
@@ -98,7 +98,8 @@ class L2Top()(implicit p: Parameters) extends LazyModule
     val config = new Config((_, _, _) => {
       case L2ParamKey => coreParams.L2CacheParamsOpt.get.copy(
         hartId = p(XSCoreParamsKey).HartId,
-        FPGAPlatform = debugOpts.FPGAPlatform
+        FPGAPlatform = debugOpts.FPGAPlatform,
+        hasMbist = hasMbist
       )
       case EnableCHI => p(EnableCHI)
       case BankBitsKey => log2Ceil(coreParams.L2NBanks)
@@ -153,6 +154,7 @@ class L2Top()(implicit p: Parameters) extends LazyModule
     val nodeID = if (enableCHI) Some(IO(Input(UInt(NodeIDWidth.W)))) else None
     val l2_tlb_req = IO(new TlbRequestIO(nRespDups = 2))
     val l2_hint = IO(ValidIO(new L2ToL1Hint()))
+    val dft_reset = IO(Input(new DFTResetSignals()))
 
     val resetDelayN = Module(new DelayN(UInt(PAddrBits.W), 5))
 
@@ -165,6 +167,8 @@ class L2Top()(implicit p: Parameters) extends LazyModule
     dontTouch(cpu_halt)
     if (!chi.isEmpty) { dontTouch(chi.get) }
 
+    val dft = if(l2cache.isDefined && hasMbist) Some(IO(Input(l2cache.get.module.dft.get.cloneType))) else None
+
     if (l2cache.isDefined) {
       val l2 = l2cache.get.module
       l2_hint := l2.io.l2_hint
@@ -172,7 +176,9 @@ class L2Top()(implicit p: Parameters) extends LazyModule
       l2.io.hartId := hartId.fromTile
       l2.io.debugTopDown.robHeadPaddr := debugTopDown.robHeadPaddr
       l2.io.debugTopDown.robTrueCommit := debugTopDown.robTrueCommit
+      l2.dft_reset := dft_reset
       debugTopDown.l2MissMatch := l2.io.debugTopDown.l2MissMatch
+      if(hasMbist) l2.dft.get := dft.get
 
       /* l2 tlb */
       l2_tlb_req.req.bits := DontCare

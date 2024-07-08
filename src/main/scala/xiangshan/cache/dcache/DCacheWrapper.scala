@@ -28,6 +28,7 @@ import freechips.rocketchip.util.BundleFieldBase
 import huancun.{AliasField, PrefetchField}
 import org.chipsalliance.cde.config.Parameters
 import utility._
+import utility.mbist.MbistPipeline
 import utils._
 import xiangshan._
 import xiangshan.backend.Bundles.DynInst
@@ -867,6 +868,7 @@ class DCacheImp(outer: DCache) extends LazyModuleImp(outer) with HasDCacheParame
   val fdpMonitor =  Module(new FDPrefetcherMonitor)
   val bloomFilter =  Module(new BloomFilter(BLOOM_FILTER_ENTRY_NUM, true))
   val counterFilter = Module(new CounterFilter)
+  val mbistPl = MbistPipeline.PlaceMbistPipeline(2, s"MbistPipeDcache", hasMbist)
   bankedDataArray.dump()
 
   //----------------------------------------
