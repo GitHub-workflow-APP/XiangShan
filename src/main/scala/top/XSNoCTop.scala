@@ -29,6 +29,7 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.interrupts._
 import freechips.rocketchip.tilelink._
 import coupledL2.tl2chi.PortIO
+import difftest.common.DifftestWiring
 import freechips.rocketchip.tile.MaxHartIdBits
 
 class XSNoCTop()(implicit p: Parameters) extends BaseXSSoc with HasSoCParameter
@@ -144,3 +145,34 @@ class XSNoCTop()(implicit p: Parameters) extends BaseXSSoc with HasSoCParameter
 
   lazy val module = new XSNoCTopImp(this)
 }
+
+class XSNoCWrapper(implicit p: Parameters) extends Module {
+  override val desiredName: String = "XSWrapper"
+  val l_soc = LazyModule(new XSNoCTop())
+  val soc = Module(l_soc.module)
+
+  // To ignore All XSTop IOs
+  l_soc.clint <> DontCare
+  l_soc.debug <> DontCare
+  l_soc.plic <> DontCare
+  l_soc.beu <> DontCare
+  soc.clock := DontCare
+  soc.reset := DontCare
+  soc.bus_clock := DontCare
+  soc.bus_reset := DontCare
+//  soc.io <> DontCare
+  def dontCare(io: Option[Data]): Unit = {
+    if (io.isDefined) io.get <> DontCare
+  }
+  dontCare(soc.imsic_m_s)
+  dontCare(soc.imsic_s_s)
+  dontCare(soc.imsic_m_tl)
+  dontCare(soc.imsic_s_tl)
+
+  // Expose XSTop IOs outside, i.e. io
+  val io = IO(chiselTypeOf(soc.io))
+  io <> soc.io
+
+  DifftestWiring.createAndConnectExtraIOs()
+}
+

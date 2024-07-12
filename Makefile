@@ -146,7 +146,7 @@ $(TOP_V): $(SCALA_FILE)
 	mkdir -p $(@D)
 	$(TIME_CMD) mill -i xiangshan[$(CHISEL_VERSION)].runMain $(FPGATOP)   \
 		--target-dir $(@D) --config $(CONFIG) $(FPGA_MEM_ARGS)        \
-		--num-cores $(NUM_CORES) $(RELEASE_ARGS)
+		--num-cores $(NUM_CORES) $(RELEASE_ARGS) $(RELEASE_EXTRA_ARGS)
 ifeq ($(MFC),1)
 	$(MEM_GEN_SEP) "$(MEM_GEN)" "$@.conf" "$(@D)"
 endif
