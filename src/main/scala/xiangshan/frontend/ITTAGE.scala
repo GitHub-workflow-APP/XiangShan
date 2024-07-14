@@ -266,9 +266,20 @@ class ITTageTable
   }
 
   val bank_conflict = (0 until nBanks).map(b => table_banks(b).io.w.req.valid && s0_bank_req_1h(b)).reduce(_||_)
-  io.req.ready := true.B // !io.update.valid
-  // io.req.ready := !bank_conflict
   XSPerfAccumulate(f"ittage_table_bank_conflict", bank_conflict)
+
+  // Power-on reset
+  val powerOnResetState = RegInit(true.B)
+  when(table_banks.map(_.io.r.req.ready).reduce(_ && _)) {
+    // When all the SRAM first reach ready state, we consider power-on reset is done
+    powerOnResetState := false.B
+  }
+  // Do not use table banks io.r.req.ready directly
+  // All table_banks are single port SRAM, ready := !wen
+  // We do not want write request block the whole BPU pipeline
+  // Once read priority is higher than write, table_banks(*).io.r.req.ready can be used
+  io.req.ready := !powerOnResetState
+
 
   us.io.wen := io.update.uValid && io.update.valid
   us.io.waddr := update_idx
@@ -589,7 +600,6 @@ class ITTage(implicit p: Parameters) extends BaseITTage {
 
   // Debug and perf info
   XSPerfAccumulate("ittage_reset_u", updateResetU)
-  XSPerfAccumulate("ittage_write_blocks_read", !io.s1_ready)
   XSPerfAccumulate("ittage_used", io.s1_fire(0) && s1_isIndirect)
   XSPerfAccumulate("ittage_closed_due_to_uftb_info", io.s1_fire(0) && !s1_isIndirect)
 
